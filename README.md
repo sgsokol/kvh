@@ -15,5 +15,5 @@ Example:
      l=kvh_read("test.kvh")
      # check a field
      l$test$x # NB. it has a character values put in a list not a numeric vector as it was in obj.
-
+     attr(l$test$x, "ln") # line number where the entry test/x started in test.kvh
 ```

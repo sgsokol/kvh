@@ -1,14 +1,15 @@
 Package: kvh
 Type: Package
 Title: Read/Write Files in Key-Value-Hierarchy Format
-Version: 1.0
-Date: 2017-10-02
+Version: 1.1
+Date: 2017-10-??
 Author: Serguei Sokol
 Maintainer: Serguei Sokol <sokol@insa-toulouse.fr>
 Description: The format KVH is a lightweight format that can be read/written both by humans and machines.
    It can be useful in situations where XML or alike formats seem to be an overkill.
-   We provide an ability to parse kvh files in R pretty fast due to Rcpp use.
+   We provide an ability to parse KVH files in R pretty fast due to 'Rcpp' use.
 URL: http://serguei.sokol.free.fr/kvh-format/
+BugReports: https://github.com/sgsokol/kvh/issues
 License: GPL (>= 2)
 Imports: Rcpp (>= 0.12.12)
 LinkingTo: Rcpp
