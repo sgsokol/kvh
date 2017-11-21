@@ -4,7 +4,7 @@
 \alias{obj2kvh}
 \title{Writing/adding an R object to kvh file.}
 \usage{
-obj2kvh(obj, objname, conct = stdout(), indent = 0)
+obj2kvh(obj, objname = NULL, conct = stdout(), indent = 0)
 }
 \arguments{
 \item{obj}{an R object}
@@ -30,6 +30,8 @@ To add a content to existent file use "a" as open mode
 Writing in a subfield of an already started key requires use of
 appropriate indent value. The file is started with indent=0 and
 every sub-field increments the indent by 1.
+If objname is NULL and obj is not a scalar value, the content of obj
+is written in kvh file without additional indent.
 }
 \examples{
 m=matrix(1:6,2,3);

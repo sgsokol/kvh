@@ -1,0 +1,15 @@
+Version 1.1
+=============
+
+* 2017-11-21
+ - added integer attribute 'ln' (line number) to values returned by kvh_read()
+ - added BugReports to DESCRIPTION
+ - added README.md for github
+ - added export of esc_kvh_k() and esc_kvh_v() functions
+ - parameter 'objname' may be set to NULL (default) and ignored
+
+Version 1.0.1
+=============
+
+* 2017-10-02
+ - initial commit to CRAN
