@@ -1,7 +1,7 @@
 # 2011-03-06 sokol
 # function to manipulate kvh format
 obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
-#' Writing/adding an R object to kvh file.
+#' Writing/Adding an R Object to KVH File.
 #'
 #' Formats an object before writing it in kvh file.
 #'
@@ -58,7 +58,7 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
    } else {
       cat(c(esc_kvh_k(objname), "\n"), sep="", file=conct);
    }
-   if (cls=="matrix" || substring(cls, nchar(cls)-5)=="Matrix") {
+   if (cls=="matrix" || substring(cls, nchar(cls)-5) == "Matrix") {
       # place for row names
       cat(rep("\t", indent+1, sep=""), sep="", file=conct);
       cat("row_col\t", sep="", file=conct);
@@ -121,9 +121,25 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
    return(invisible(NULL))
 }
 esc_kvh_k=function(s) {
+#' Escape Special Characters in a key
+#'
+#' Escape Tabs, Newlines and Backslashes in a string which will be used as a key in a KVH file.
+#'
+#' Escape is done by butting a backslash before a special character.'
+#'
+#' @param s string
+#' @return escaped string
    return(gsub("([\t\\\n])", "\\\\\\1", s));
 }
 esc_kvh_v=function(s) {
+#' Escape Special Characters in a value
+#'
+#' Escape Newlines and Backslashes in a string which will be used as a key in a KVH file.
+#'
+#' Escape is done by butting a backslash before a special character.'
+#'
+#' @param s string
+#' @return escaped string
    return(gsub("([\\\n])", "\\\\\\1", s));
 }
 kvh2list=function(fp, lev=0, indent=0) {
@@ -165,7 +181,7 @@ kvh2list=function(fp, lev=0, indent=0) {
    # algorithm:
    # advance to requested indent (=level)
    # if not sucsessful return an empty list
-   # read a key 
+   # read a key
    # if sep==\t read value
    # elif sep=\n
    #     recursive call
@@ -371,12 +387,12 @@ kvh_get_matrix=function(f, v) {
 #'
 #' @param f connection from which kvh file can be read
 #' @param v character vector of key-subkeys pointing to a matrix
-#' 
+#'
 #' @return matrix read from kvh
 
    # return a plain matrix stored in the field v of a kvh file f.
    # v can be a vector of subfield keys.
-   
+
    # read the file in a vector
    cont=readLines(f)
    ncont=length(cont)
@@ -427,7 +443,7 @@ obj_by_keys=function(li, keys) {
 #'
 #' @param li a named nested list returned by kvh_read()
 #' @param keys character vector naming key suites to identify an object
-#' 
+#'
 #' @return an object corresponding to li[[keys[1]][[keys[2]][[...]]. Return
 #' NULL if non valid keys.
 

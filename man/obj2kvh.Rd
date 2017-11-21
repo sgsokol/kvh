@@ -2,7 +2,7 @@
 % Please edit documentation in R/kvh.R
 \name{obj2kvh}
 \alias{obj2kvh}
-\title{Writing/adding an R object to kvh file.}
+\title{Writing/Adding an R Object to KVH File.}
 \usage{
 obj2kvh(obj, objname = NULL, conct = stdout(), indent = 0)
 }
