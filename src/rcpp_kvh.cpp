@@ -109,7 +109,7 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln) {
 //print(wrap(fin.eof()));
         if ((line.size() == 0 && fin.eof()) || (lev && indent_lacking(line, lev))) {
             // current level is ended => go upper and let treat the line (already read) there
-            res.attr("ln")=ln[0];
+            res.attr("ln")=(int) ln[0];
             res.attr("names")=nm;
             ll.res=res;
             ll.line=line;
@@ -125,7 +125,7 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln) {
             kv.val=ll.res;
             line=ll.line;
         } // else simple key-value pair
-        kv.val.attr("ln")=ln_save;
+        kv.val.attr("ln")=(int) ln_save;
         res.push_back(kv.val);
         nm.push_back(kv.key);
     }
