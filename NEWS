@@ -1,7 +1,7 @@
 Version 1.1
-=============
+===========
 
-* 2017-11-21
+* 2017-12-06
  - added integer attribute 'ln' (line number) to values returned by kvh_read()
  - added new function obj_by_keys()
  - added BugReports to DESCRIPTION
