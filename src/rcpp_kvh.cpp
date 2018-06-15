@@ -192,12 +192,14 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln, const string& comment_
             kv.val=(ll.res.size() == 0 ? "" : ll.res);
             line=ll.line;
         } // else simple key-value pair
-        if (follow_url) {
+        if (follow_url && kv.val.sexp_type() == STRSXP) {
+//Rcout << "follow_url\n";
             CharacterVector cval(kv.val);
             if (cval.size() == 1) {
                 string sval=as<string>(cval[0]);
                 if (sval.substr(0, 7) == "file://") {
                     sval=sval.substr(7);
+//Rcout << "trying to kvh_read '" << sval << "'\n";
                     kv.val=kvh_read(sval, comment_str, strip_white, skip_blank, split_str, follow_url);
                     if (kv.val.isNULL()) {
 //Rcout << "set kv.val back to file://...\n";
@@ -205,7 +207,7 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln, const string& comment_
                     }
                 }
             }
-        }
+        } // else if (kv.val.sexp_type() == STRSXP) { CharacterVector cval(kv.val); string sval=as<string>(cval[0]); if (sval.substr(0, 7) == "file://") Rcout << "not following '" << sval << "'\n";}
         kv.val.attr("ln")=(int) ln_save;
         res.push_back(kv.val);
         nm.push_back(kv.key);
@@ -236,11 +238,12 @@ RObject kvh_read(string fn, const string& comment_str="", const bool strip_white
     // read kvh file and return its content in a nested named list of character vectors
     if (comment_str.find('\t') < string::npos || comment_str.find('\n') < string::npos)
         stop("parameter 'comment_str' cannot have tabulation or new line characters");
+//Rcout << "follow_url=" << follow_url << "\n";
     // check for nested references if follow_url=true
     static set<string> read_files;
     if (follow_url) {
         if (read_files.find(fn) != read_files.end()) {
-            warning("kvh_read: detected nested reference to file '%s'", fn);
+            warning("kvh_read: detected circular reference to file '%s'", fn);
             return R_NilValue;
         }
         read_files.insert(fn);
@@ -254,6 +257,8 @@ RObject kvh_read(string fn, const string& comment_str="", const bool strip_white
         stop("cannot open file '%s' for reading", fn);
     ll=kvh_read(fin, 0, &ln, comment_str, strip_white, skip_blank, split_str, follow_url);
     fin.close();
+    if (follow_url)
+        read_files.erase(fn);
     ll.res.attr("file")=fn;
     return ll.res;
 }
