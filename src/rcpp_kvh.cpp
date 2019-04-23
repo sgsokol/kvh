@@ -1,15 +1,51 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 using namespace std;
+// [[Rcpp::plugins(cpp11)]]
+#include <string.h>
+//#include <unistd.h> // get_working_dir()
+#include <stdio.h>
 
-#include <iostream>
-#include <fstream>
-
-#include "../inst/include/kvh.h"
+#include <kvh.h>
 
 static string whitespaces(" \t\f\v\n\r");
+Environment e("package:base");
+Function dn=e["dirname"];
+Function bn=e["basename"];
+Function np=e["normalizePath"];
+size_t bsize=1024;
+char *bchar=(char*) malloc(bsize*sizeof(char));
+
 
 // auxiliary functions
+bool starts_with(string s, string pre) {
+    if (pre.size() > s.size())
+        return false;
+    return s.substr(0, pre.size()) == pre;
+}
+inline bool is_ap(const string &p) {
+    // chack if a path is absolute one
+    return starts_with(p, "/") || (isalpha(p[0]) && (starts_with(p.substr(1), ":/") || starts_with(p.substr(1), ":\\")));
+}
+string dir_n(string p) {
+    // extract dirname part of path p
+    return as<string>(dn(wrap(p)));
+}
+string base_n(string p) {
+    // extract basename part of path p
+    return as<string>(bn(wrap(p)));
+}
+string norm_p(string p) {
+    // normalize path p
+    return as<string>(np(wrap(p)));
+}
+template <typename T>
+string join(vector<T> v, string &sep) {
+    ostringstream res;
+    for (auto ii=v.begin(); ii != v.end(); ++ii)
+        res << *ii << (ii+1 != v.end() ? sep : "");
+    return res.str();
+}
 string unescape(string s) {
     // unescape tab, newline and backslash
     string res=s;
@@ -76,16 +112,22 @@ inline void strip_wh(string &s) {
     return;
 }
 
-string kvh_get_line(ifstream& fin, size_t* ln, const string& comment_str) {
+string kvh_get_line(FILE* fin, size_t* ln, const string& comment_str) {
     // get a string from stream that ends without escaped eol character and increment ln[0]
     string b, res;
     size_t pstr;
     res="";
     bool first_read=true;
-    while ((first_read || escaped_eol(res)) && getline(fin, b) && ++ln[0]) {
-        if (!first_read && !fin.eof())
+    ssize_t nch;
+//Rcout << "kvh_get_line\n";
+    while ((first_read || escaped_eol(res)) && (nch=getline(&bchar, &bsize, fin)) && ++ln[0]) {
+        if (nch && bchar[nch-1] == '\n')
+            bchar[nch-1]=0;
+//Rcout << "nch=" << nch << ", bchar='" << bchar << "'\n";
+        if (!first_read && !feof(fin))
             res += '\n';
-        res += b;
+        res += bchar;
+        bchar[0]=0;
         first_read=false;
     }
     if (comment_str.size() > 0) {
@@ -93,6 +135,7 @@ string kvh_get_line(ifstream& fin, size_t* ln, const string& comment_str) {
         if (pstr != string::npos && (b=res.substr(0, pstr), true) && !escaped_eol(b)) // stip out non escaped comments
             res=b;
     }
+//Rcout << "read: " << res << "\n";
     return res;
 }
 keyval kvh_parse_kv(string& line, size_t& lev, const bool strip_white, const string &split_str) {
@@ -157,7 +200,7 @@ keyval kvh_parse_kv(string& line, size_t& lev, const bool strip_white, const str
     }
     return(kv);
 }
-list_line kvh_read(ifstream& fin, size_t lev, size_t* ln, const string& comment_str, const bool strip_white, const bool skip_blank, const string& split_str, const bool follow_url) {
+list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str, const bool strip_white, const bool skip_blank, const string& split_str, const bool follow_url) {
     // recursively read kvh file and return its content in a nested named list of character vectors
     List res=List::create() ;
     keyval kv;
@@ -166,15 +209,17 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln, const string& comment_
     bool read_stream=true;
     size_t ln_save;
     CharacterVector nm(0);
-    while (!fin.eof()) { // && i++ < 5) {
+    while (!feof(fin)) { // && i++ < 5) {
         // get full line (i.e. concat lines with escaped end_of_line)
         if (read_stream)
             line=kvh_get_line(fin, ln, comment_str);
 //print(wrap(line));
-//print(wrap(fin.eof()));
-        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == string::npos)) && !fin.eof())
+//print(wrap(feof(fin)));
+        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == string::npos)) && !feof(fin)) {
+//Rcout << "skiping blank\n";
             continue; // skip white line
-        if ((line.size() == 0 && fin.eof()) || (lev && indent_lacking(line, lev))) {
+        }
+        if ((line.size() == 0 && feof(fin)) || (lev && indent_lacking(line, lev))) {
             // current level is ended => go upper and let treat the line (already read) there
             res.attr("ln")=(int) ln[0];
             res.attr("names")=nm;
@@ -231,34 +276,76 @@ list_line kvh_read(ifstream& fin, size_t lev, size_t* ln, const string& comment_
 //' @param strip_white logical optional control of white spaces on both ends of keys and values (default FALSE)
 //' @param skip_blank logical optional control of lines composed of only white characters after a possible stripping of a comment (default FALSE)
 //' @param split_str character optional string by which a value string can be splitted in several strings (default: empty string, i.e. no splitting)
-//' @param follow_url logical optional control of recursive kvh reading and parsing. If set to TRUE and a value starts with 'file://' then the path following this prefix will be passed as argument 'fn' to another 'kvh_read()' call. The list returned by this last call will be affected to the corresponding key instead of the value 'file://...'. If a circular reference to some file is detected, a warning is emmited and the faulty value 'file://...' will be left without change. The rest of the file is proceeded as usual.
+//' @param follow_url logical optional control of recursive kvh reading and parsing. If set to TRUE and a value starts with 'file://' then the path following this prefix will be passed as argument 'fn' to another 'kvh_read()' call. The list returned by this last call will be affected to the corresponding key instead of the value 'file://...'. If a circular reference to some file is detected, a warning is emmited and the faulty value 'file://...' will be left without change. The rest of the file is proceeded as usual. If a path is relative one (i.e. not strating with `/` neither 'C:/' or alike on windows paltform) then its meant relative to the location of the parent kvh file, not the current working directory.
 //' @export
 // [[Rcpp::export]]
 RObject kvh_read(string fn, const string& comment_str="", const bool strip_white=false, const bool skip_blank=false, const string& split_str="", const bool follow_url=false) {
+    if (fn.size() == 0)
+        stop("kvh_read: file name is empty");
     // read kvh file and return its content in a nested named list of character vectors
-    if (comment_str.find('\t') < string::npos || comment_str.find('\n') < string::npos)
-        stop("parameter 'comment_str' cannot have tabulation or new line characters");
+    if (comment_str.find('\t') < string::npos || comment_str.find('\n') < string::npos) {
+//Rcout << "find tab=" << comment_str.find('\t') << "\n";
+//Rcout << "find nl=" << comment_str.find('\n') << "\n";
+        if (bchar) {
+            free(bchar);
+            bchar=NULL;
+        }
+        stop("kvh_read: parameter 'comment_str' cannot have tabulation or new line characters in it");
+    }
 //Rcout << "follow_url=" << follow_url << "\n";
     // check for nested references if follow_url=true
     static set<string> read_files;
+//Rcout << "cwd='" << get_current_dir_name() << "'\n";
+//ostream_iterator<string> sout(Rcout, ";\n");
+    static vector<string> dirw;
+    bool absp=is_ap(fn);
+    string dn=dir_n(fn);
+    string npath;
     if (follow_url) {
-        if (read_files.find(fn) != read_files.end()) {
-            warning("kvh_read: detected circular reference to file '%s'", fn);
+        dirw.push_back(absp || dirw.size() == 0 ? dn : dirw[dirw.size()-1]+"/"+dn);
+//Rcout << "fn='" << fn << "'; read_files=\n";
+//copy(read_files.begin(), read_files.end(), sout);
+        fn=dirw[dirw.size()-1]+"/"+base_n(fn);
+//Rcout << "fnew=" << fn << "\n";
+        npath=norm_p(fn);
+        if (read_files.count(npath)) {
+            warning("kvh_read: detected circular reference to file '%s' via '%s'", npath, fn);
+            if (bchar) {
+                free(bchar);
+                bchar=NULL;
+            }
             return R_NilValue;
         }
-        read_files.insert(fn);
+        read_files.insert(npath);
     }
     // open file for binary reading
-    ifstream fin;
+    FILE *fin;
     list_line ll;
     size_t ln=0; // running line number in kvh file
-    fin.open(fn.data(), ios::in | ios::binary);
-    if (!fin)
-        stop("cannot open file '%s' for reading", fn);
+    fin=fopen(fn.data() , "rb");
+    if (fin == NULL) {
+        if (follow_url) {
+            read_files.erase(npath);
+            dirw.pop_back();
+        }
+        if (bchar) {
+            free(bchar);
+            bchar=NULL;
+        }
+        stop("kvh_read: cannot open file '%s' for reading for following reason: %s", fn, strerror(errno));
+    }
+    if (!bchar)
+        bchar=(char*) malloc(bsize*sizeof(char));
     ll=kvh_read(fin, 0, &ln, comment_str, strip_white, skip_blank, split_str, follow_url);
-    fin.close();
-    if (follow_url)
-        read_files.erase(fn);
+    fclose(fin);
+    if (follow_url) {
+        read_files.erase(npath);
+        dirw.pop_back();
+    }
     ll.res.attr("file")=fn;
+    if (bchar) {
+        free(bchar);
+        bchar=NULL;
+    }
     return ll.res;
 }
