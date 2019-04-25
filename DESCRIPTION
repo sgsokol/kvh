@@ -16,4 +16,5 @@ LinkingTo: Rcpp
 Suggests: testthat
 NeedsCompilation: yes
 Biarch: yes
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
+Encoding: UTF-8

@@ -6,7 +6,7 @@ using namespace std;
 //#include <unistd.h> // get_working_dir()
 #include <stdio.h>
 
-#include <kvh.h>
+#include "../inst/include/kvh.h"
 
 static string whitespaces(" \t\f\v\n\r");
 Environment e("package:base");
