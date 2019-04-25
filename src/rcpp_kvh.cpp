@@ -1,6 +1,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
-using namespace std;
+//using namespace std;
 // [[Rcpp::plugins(cpp11)]]
 #include <string.h>
 //#include <unistd.h> // get_working_dir()
@@ -42,7 +42,7 @@ string norm_p(string p) {
 template <typename T>
 string join(vector<T> v, string &sep) {
     ostringstream res;
-    for (auto ii=v.begin(); ii != v.end(); ++ii)
+    for (typename vector<T>::iterator ii=v.begin(); ii != v.end(); ++ii)
         res << *ii << (ii+1 != v.end() ? sep : "");
     return res.str();
 }
@@ -120,8 +120,8 @@ string kvh_get_line(FILE* fin, size_t* ln, const string& comment_str) {
     bool first_read=true;
     ssize_t nch;
 //Rcout << "kvh_get_line\n";
-    while ((first_read || escaped_eol(res)) && (nch=getline(&bchar, &bsize, fin)) && ++ln[0]) {
-        if (nch && bchar[nch-1] == '\n')
+    while (feof(fin) == 0 && (first_read || escaped_eol(res)) && (nch=getline(&bchar, &bsize, fin)) && nch != -1 && ++ln[0] ) {
+        if (bchar[nch-1] == '\n')
             bchar[nch-1]=0;
 //Rcout << "nch=" << nch << ", bchar='" << bchar << "'\n";
         if (!first_read && !feof(fin))
