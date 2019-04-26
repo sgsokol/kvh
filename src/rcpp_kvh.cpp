@@ -1,10 +1,13 @@
+//#define _GNU_SOURCE
 #include <Rcpp.h>
 using namespace Rcpp;
 //using namespace std;
 // [[Rcpp::plugins(cpp11)]]
-#include <string.h>
+#include <string>
+#include <iostream>
+#include <fstream>
 //#include <unistd.h> // get_working_dir()
-#include <stdio.h>
+//#include <stdio.h>
 
 #include "../inst/include/kvh.h"
 
@@ -13,8 +16,8 @@ Environment e("package:base");
 Function dn=e["dirname"];
 Function bn=e["basename"];
 Function np=e["normalizePath"];
-size_t bsize=1024;
-char *bchar=(char*) malloc(bsize*sizeof(char));
+//size_t bsize=1024;
+//char *bchar=(char*) malloc(bsize*sizeof(char));
 
 
 // auxiliary functions
@@ -111,24 +114,29 @@ inline void strip_wh(std::string &s) {
 //Rcout << "strip_wh: striped right '" << s << "'\n";
     return;
 }
-
-std::string kvh_get_line(FILE* fin, size_t* ln, const std::string& comment_str) {
+std::string kvh_get_line(std::ifstream& fin, size_t* ln, const std::string& comment_str) {
     // get a string from stream that ends without escaped eol character and increment ln[0]
     std::string b, res;
     size_t pstr;
     res="";
-    bool first_read=true;
-    ssize_t nch;
+    //bool first_read=true;
+    //ssize_t nch;
 //Rcout << "kvh_get_line\n";
-    while (feof(fin) == 0 && (first_read || escaped_eol(res)) && (nch=getline(&bchar, &bsize, fin)) && nch != -1 && ++ln[0] ) {
-        if (bchar[nch-1] == '\n')
-            bchar[nch-1]=0;
+//    while (feof(fin) == 0 && (first_read || escaped_eol(res)) && (nch=getline(&bchar, &bsize, fin)) && nch != -1 && ++ln[0] ) {
+    while (!fin.eof()) {
+        std::getline(fin, b);
+        ln[0]++;
+        //if (bchar[nch-1] == '\n')
+        //    bchar[nch-1]=0;
 //Rcout << "nch=" << nch << ", bchar='" << bchar << "'\n";
-        if (!first_read && !feof(fin))
+        res += b;
+        if (escaped_eol(b) && !fin.eof())
             res += '\n';
-        res += bchar;
-        bchar[0]=0;
-        first_read=false;
+        else
+            break;
+//        res += bchar;
+//        bchar[0]=0;
+//        first_read=false;
     }
     if (comment_str.size() > 0) {
         pstr=res.find(comment_str);
@@ -200,7 +208,7 @@ keyval kvh_parse_kv(std::string& line, size_t& lev, const bool strip_white, cons
     }
     return(kv);
 }
-list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const std::string& comment_str, const bool strip_white, const bool skip_blank, const std::string& split_str, const bool follow_url) {
+list_line kvh_read(std::ifstream& fin, size_t lev, size_t* ln, const std::string& comment_str, const bool strip_white, const bool skip_blank, const std::string& split_str, const bool follow_url) {
     // recursively read kvh file and return its content in a nested named list of character vectors
     List res=List::create() ;
     keyval kv;
@@ -209,17 +217,17 @@ list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const std::string& comment
     bool read_stream=true;
     size_t ln_save;
     CharacterVector nm(0);
-    while (!feof(fin)) { // && i++ < 5) {
+    while (!fin.eof()) { // && i++ < 5) {
         // get full line (i.e. concat lines with escaped end_of_line)
         if (read_stream)
             line=kvh_get_line(fin, ln, comment_str);
 //print(wrap(line));
 //print(wrap(feof(fin)));
-        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == std::string::npos)) && !feof(fin)) {
+        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == std::string::npos)) && !fin.eof()) {
 //Rcout << "skiping blank\n";
             continue; // skip white line
         }
-        if ((line.size() == 0 && feof(fin)) || (lev && indent_lacking(line, lev))) {
+        if ((line.size() == 0 && fin.eof()) || (lev && indent_lacking(line, lev))) {
             // current level is ended => go upper and let treat the line (already read) there
             res.attr("ln")=(int) ln[0];
             res.attr("names")=nm;
@@ -286,10 +294,11 @@ RObject kvh_read(std::string fn, const std::string& comment_str="", const bool s
     if (comment_str.find('\t') < std::string::npos || comment_str.find('\n') < std::string::npos) {
 //Rcout << "find tab=" << comment_str.find('\t') << "\n";
 //Rcout << "find nl=" << comment_str.find('\n') << "\n";
-        if (bchar) {
+/*        if (bchar) {
             free(bchar);
             bchar=NULL;
         }
+*/
         stop("kvh_read: parameter 'comment_str' cannot have tabulation or new line characters in it");
     }
 //Rcout << "follow_url=" << follow_url << "\n";
@@ -310,42 +319,47 @@ RObject kvh_read(std::string fn, const std::string& comment_str="", const bool s
         npath=norm_p(fn);
         if (read_files.count(npath)) {
             warning("kvh_read: detected circular reference to file '%s' via '%s'", npath, fn);
-            if (bchar) {
+/*            if (bchar) {
                 free(bchar);
                 bchar=NULL;
             }
+*/
             return R_NilValue;
         }
         read_files.insert(npath);
     }
     // open file for binary reading
-    FILE *fin;
+    //FILE *fin;
+    std::ifstream fin;
     list_line ll;
     size_t ln=0; // running line number in kvh file
-    fin=fopen(fn.data() , "rb");
-    if (fin == NULL) {
+    //fin=fopen(fn.data() , "rb");
+    fin.open(fn.c_str(), std::ios_base::binary);
+    if (!fin.good()) {
         if (follow_url) {
             read_files.erase(npath);
             dirw.pop_back();
         }
-        if (bchar) {
+/*        if (bchar) {
             free(bchar);
             bchar=NULL;
         }
+*/
         stop("kvh_read: cannot open file '%s' for reading for following reason: %s", fn, strerror(errno));
     }
-    if (!bchar)
-        bchar=(char*) malloc(bsize*sizeof(char));
+//    if (!bchar)
+//        bchar=(char*) malloc(bsize*sizeof(char));
     ll=kvh_read(fin, 0, &ln, comment_str, strip_white, skip_blank, split_str, follow_url);
-    fclose(fin);
+    fin.close();
     if (follow_url) {
         read_files.erase(npath);
         dirw.pop_back();
     }
     ll.res.attr("file")=fn;
-    if (bchar) {
+/*    if (bchar) {
         free(bchar);
         bchar=NULL;
     }
+*/
     return ll.res;
 }
