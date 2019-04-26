@@ -18,6 +18,6 @@
 #' @param follow_url logical optional control of recursive kvh reading and parsing. If set to TRUE and a value starts with 'file://' then the path following this prefix will be passed as argument 'fn' to another 'kvh_read()' call. The list returned by this last call will be affected to the corresponding key instead of the value 'file://...'. If a circular reference to some file is detected, a warning is emmited and the faulty value 'file://...' will be left without change. The rest of the file is proceeded as usual. If a path is relative one (i.e. not strating with `/` neither 'C:/' or alike on windows paltform) then its meant relative to the location of the parent kvh file, not the current working directory.
 #' @export
 kvh_read <- function(fn, comment_str = "", strip_white = FALSE, skip_blank = FALSE, split_str = "", follow_url = FALSE) {
-    .Call(`_kvh_kvh_read`, fn, comment_str, strip_white, skip_blank, split_str, follow_url)
+    .Call("_kvh_kvh_read", fn, comment_str, strip_white, skip_blank, split_str, follow_url)
 }
 

@@ -8,7 +8,7 @@ using namespace Rcpp;
 
 #include "../inst/include/kvh.h"
 
-static string whitespaces(" \t\f\v\n\r");
+static std::string whitespaces(" \t\f\v\n\r");
 Environment e("package:base");
 Function dn=e["dirname"];
 Function bn=e["basename"];
@@ -18,37 +18,37 @@ char *bchar=(char*) malloc(bsize*sizeof(char));
 
 
 // auxiliary functions
-bool starts_with(string s, string pre) {
+bool starts_with(std::string s, std::string pre) {
     if (pre.size() > s.size())
         return false;
     return s.substr(0, pre.size()) == pre;
 }
-inline bool is_ap(const string &p) {
+inline bool is_ap(const std::string &p) {
     // chack if a path is absolute one
     return starts_with(p, "/") || (isalpha(p[0]) && (starts_with(p.substr(1), ":/") || starts_with(p.substr(1), ":\\")));
 }
-string dir_n(string p) {
+std::string dir_n(std::string p) {
     // extract dirname part of path p
-    return as<string>(dn(wrap(p)));
+    return as<std::string>(dn(wrap(p)));
 }
-string base_n(string p) {
+std::string base_n(std::string p) {
     // extract basename part of path p
-    return as<string>(bn(wrap(p)));
+    return as<std::string>(bn(wrap(p)));
 }
-string norm_p(string p) {
+std::string norm_p(std::string p) {
     // normalize path p
-    return as<string>(np(wrap(p)));
+    return as<std::string>(np(wrap(p)));
 }
 template <typename T>
-string join(vector<T> v, string &sep) {
-    ostringstream res;
-    for (typename vector<T>::iterator ii=v.begin(); ii != v.end(); ++ii)
+std::string join(std::vector<T> v, std::string &sep) {
+    std::ostringstream res;
+    for (typename std::vector<T>::iterator ii=v.begin(); ii != v.end(); ++ii)
         res << *ii << (ii+1 != v.end() ? sep : "");
     return res.str();
 }
-string unescape(string s) {
+std::string unescape(std::string s) {
     // unescape tab, newline and backslash
-    string res=s;
+    std::string res=s;
     size_t i,j;
     char c;
 //Rcout << "s.size()=" << s.size() << endl;
@@ -67,7 +67,7 @@ string unescape(string s) {
     }
     return res.substr(0, j);
 }
-bool indent_lacking(string& buf, size_t& lev) {
+bool indent_lacking(std::string& buf, size_t& lev) {
     // check if number of starting tab corresponds to lev
     if (lev == 0)
         return false; // at level 0 no lacking tabs
@@ -79,7 +79,7 @@ bool indent_lacking(string& buf, size_t& lev) {
     }
     return false;
 }
-bool escaped_eol(string& buf) {
+bool escaped_eol(std::string& buf) {
     // test if end_of_line is escaped or not in buf
 //Rcout << "escaped_eol: testing '" << buf << "'\n";
     int i;
@@ -92,13 +92,13 @@ bool escaped_eol(string& buf) {
 //Rcout << "result=" << (bool) i%2 << "\n";
     return i%2;
 }
-inline void strip_wh(string &s) {
+inline void strip_wh(std::string &s) {
 //Rcout << "strip_wh: stripping '" << s << "'\n";
     if (s.size() == 0)
         return;
     size_t pstr;
     pstr=s.find_first_not_of(whitespaces);
-    if (pstr != string::npos) {
+    if (pstr != std::string::npos) {
         s.erase(0, pstr);
 //Rcout << "strip_wh: striped left '" << s << "'\n";
     } else {
@@ -106,15 +106,15 @@ inline void strip_wh(string &s) {
         return;
     }
     pstr=s.find_last_not_of(whitespaces);
-    if (pstr != string::npos)
+    if (pstr != std::string::npos)
         s.erase(pstr+1);
 //Rcout << "strip_wh: striped right '" << s << "'\n";
     return;
 }
 
-string kvh_get_line(FILE* fin, size_t* ln, const string& comment_str) {
+std::string kvh_get_line(FILE* fin, size_t* ln, const std::string& comment_str) {
     // get a string from stream that ends without escaped eol character and increment ln[0]
-    string b, res;
+    std::string b, res;
     size_t pstr;
     res="";
     bool first_read=true;
@@ -132,17 +132,17 @@ string kvh_get_line(FILE* fin, size_t* ln, const string& comment_str) {
     }
     if (comment_str.size() > 0) {
         pstr=res.find(comment_str);
-        if (pstr != string::npos && (b=res.substr(0, pstr), true) && !escaped_eol(b)) // stip out non escaped comments
+        if (pstr != std::string::npos && (b=res.substr(0, pstr), true) && !escaped_eol(b)) // stip out non escaped comments
             res=b;
     }
 //Rcout << "read: " << res << "\n";
     return res;
 }
-keyval kvh_parse_kv(string& line, size_t& lev, const bool strip_white, const string &split_str) {
+keyval kvh_parse_kv(std::string& line, size_t& lev, const bool strip_white, const std::string &split_str) {
     // get key-value pair from the line
     keyval kv;
     size_t i, bs; // count backslashes;
-    string s;
+    std::string s;
 //Rcout << "lev=" << lev << ";\tline=" << line << endl;
     for (i=lev, bs=0; i < line.size(); i++) {
         if (line[i] == '\\') {
@@ -158,11 +158,11 @@ keyval kvh_parse_kv(string& line, size_t& lev, const bool strip_white, const str
             s=line.substr(i+1);
             if (split_str.size() > 0) {
                 // split s
-                vector<string> vs; // will have results of split
+                std::vector<std::string> vs; // will have results of split
                 size_t pos, splpos; // position of the split string in s
-                string subs;
-                for (pos=0; pos < s.size() && (splpos=s.find(split_str, pos)) != string::npos;) {
-                    for (subs=s.substr(pos, splpos-pos); escaped_eol(subs) && splpos != string::npos; splpos=s.find(split_str,  splpos+split_str.size()), subs=s.substr(pos, splpos-pos))
+                std::string subs;
+                for (pos=0; pos < s.size() && (splpos=s.find(split_str, pos)) != std::string::npos;) {
+                    for (subs=s.substr(pos, splpos-pos); escaped_eol(subs) && splpos != std::string::npos; splpos=s.find(split_str,  splpos+split_str.size()), subs=s.substr(pos, splpos-pos))
                         ; // find first unescaped splpos
 //Rcout << "pos=" << pos << "\n";
                     if (strip_white)
@@ -200,11 +200,11 @@ keyval kvh_parse_kv(string& line, size_t& lev, const bool strip_white, const str
     }
     return(kv);
 }
-list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str, const bool strip_white, const bool skip_blank, const string& split_str, const bool follow_url) {
+list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const std::string& comment_str, const bool strip_white, const bool skip_blank, const std::string& split_str, const bool follow_url) {
     // recursively read kvh file and return its content in a nested named list of character vectors
     List res=List::create() ;
     keyval kv;
-    string line;
+    std::string line;
     list_line ll;
     bool read_stream=true;
     size_t ln_save;
@@ -215,7 +215,7 @@ list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str,
             line=kvh_get_line(fin, ln, comment_str);
 //print(wrap(line));
 //print(wrap(feof(fin)));
-        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == string::npos)) && !feof(fin)) {
+        if (skip_blank && (line.size() == 0 || (strip_white && line.find_first_not_of(whitespaces) == std::string::npos)) && !feof(fin)) {
 //Rcout << "skiping blank\n";
             continue; // skip white line
         }
@@ -241,7 +241,7 @@ list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str,
 //Rcout << "follow_url\n";
             CharacterVector cval(kv.val);
             if (cval.size() == 1) {
-                string sval=as<string>(cval[0]);
+                std::string sval=as<std::string>(cval[0]);
                 if (sval.substr(0, 7) == "file://") {
                     sval=sval.substr(7);
 //Rcout << "trying to kvh_read '" << sval << "'\n";
@@ -252,7 +252,7 @@ list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str,
                     }
                 }
             }
-        } // else if (kv.val.sexp_type() == STRSXP) { CharacterVector cval(kv.val); string sval=as<string>(cval[0]); if (sval.substr(0, 7) == "file://") Rcout << "not following '" << sval << "'\n";}
+        } // else if (kv.val.sexp_type() == STRSXP) { CharacterVector cval(kv.val); std::string sval=as<std::string>(cval[0]); if (sval.substr(0, 7) == "file://") Rcout << "not following '" << sval << "'\n";}
         kv.val.attr("ln")=(int) ln_save;
         res.push_back(kv.val);
         nm.push_back(kv.key);
@@ -279,11 +279,11 @@ list_line kvh_read(FILE* fin, size_t lev, size_t* ln, const string& comment_str,
 //' @param follow_url logical optional control of recursive kvh reading and parsing. If set to TRUE and a value starts with 'file://' then the path following this prefix will be passed as argument 'fn' to another 'kvh_read()' call. The list returned by this last call will be affected to the corresponding key instead of the value 'file://...'. If a circular reference to some file is detected, a warning is emmited and the faulty value 'file://...' will be left without change. The rest of the file is proceeded as usual. If a path is relative one (i.e. not strating with `/` neither 'C:/' or alike on windows paltform) then its meant relative to the location of the parent kvh file, not the current working directory.
 //' @export
 // [[Rcpp::export]]
-RObject kvh_read(string fn, const string& comment_str="", const bool strip_white=false, const bool skip_blank=false, const string& split_str="", const bool follow_url=false) {
+RObject kvh_read(std::string fn, const std::string& comment_str="", const bool strip_white=false, const bool skip_blank=false, const std::string& split_str="", const bool follow_url=false) {
     if (fn.size() == 0)
         stop("kvh_read: file name is empty");
     // read kvh file and return its content in a nested named list of character vectors
-    if (comment_str.find('\t') < string::npos || comment_str.find('\n') < string::npos) {
+    if (comment_str.find('\t') < std::string::npos || comment_str.find('\n') < std::string::npos) {
 //Rcout << "find tab=" << comment_str.find('\t') << "\n";
 //Rcout << "find nl=" << comment_str.find('\n') << "\n";
         if (bchar) {
@@ -294,13 +294,13 @@ RObject kvh_read(string fn, const string& comment_str="", const bool strip_white
     }
 //Rcout << "follow_url=" << follow_url << "\n";
     // check for nested references if follow_url=true
-    static set<string> read_files;
+    static std::set<std::string> read_files;
 //Rcout << "cwd='" << get_current_dir_name() << "'\n";
-//ostream_iterator<string> sout(Rcout, ";\n");
-    static vector<string> dirw;
+//std::ostream_iterator<std::string> sout(Rcout, ";\n");
+    static std::vector<std::string> dirw;
     bool absp=is_ap(fn);
-    string dn=dir_n(fn);
-    string npath;
+    std::string dn=dir_n(fn);
+    std::string npath;
     if (follow_url) {
         dirw.push_back(absp || dirw.size() == 0 ? dn : dirw[dirw.size()-1]+"/"+dn);
 //Rcout << "fn='" << fn << "'; read_files=\n";
