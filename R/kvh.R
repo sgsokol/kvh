@@ -18,7 +18,7 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
 #'
 #' @param obj an R object
 #' @param objname character object name to write in kvh file
-#' @param conct connection opened for writing
+#' @param conct connection opened for writing or file name
 #' @param indent is tab offset for object name
 #'
 #' @return None
@@ -28,23 +28,28 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
 #' fcn=file("m.kvh", "w");
 #' obj2kvh(m, "m", fcn);
 #' close(fcn);
+#' # clean
+#' unlink("m.kvh")
 #'
-
-   cls=class(obj);
+   if (length(objname) > 1L)
+      stop("'objname' cannot be of length > 1, got length=", length(objname))
+   cls=class(obj)[1L]; # we rely on the first name in classes only 
    indent=max(indent,0);
    open_here=FALSE
    if (class(conct)[1]=="character") {
       # open a file for writing if non existent yet otherwise raise an error
       if (file.exists(conct)) {
-         stop(sprintf("Cannot write to existent file '%s'. To overwrite it, open a connection in 'w' or 'wb' mode.", conct))
+         stop(sprintf("Cannot overwrite existing file '%s'. To overwrite it, open a connection in 'w' or 'wb' mode.", conct))
       }
       conct=file(conct, "wb")
-      open_here=T
+      open_here=TRUE
    }
 #browser()
    if (length(obj) == 1 && ((is.vector(obj) && !is.list(obj)) || (is.numeric(obj) || is.character(obj) || is.logical(obj) || is.complex(obj)))) {
       # scalar
       cat(rep("\t", indent, sep=""), sep="", file=conct);
+      # print the key. It requires "\n" or "\t" in next code depending on if the value
+      # has an hierarchy or not.
       cat(c(if (nchar(objname)) esc_kvh_k(objname) else "", "\t", esc_kvh_v(obj), "\n"), sep="", file=conct);
       if (open_here) {
          close(conct)
@@ -56,9 +61,10 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
    if (is.null(objname)) {
       indent=indent-1
    } else {
-      cat(c(esc_kvh_k(objname), "\n"), sep="", file=conct);
+      cat(esc_kvh_k(objname), sep="", file=conct);
    }
    if (cls=="matrix" || substring(cls, nchar(cls)-5) == "Matrix") {
+      cat("\n", file=conct)
       # place for row names
       cat(rep("\t", indent+1, sep=""), sep="", file=conct);
       cat("row_col\t", sep="", file=conct);
@@ -86,6 +92,7 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
       }
    } else if (is.vector(obj) && !is.list(obj) && NROW(obj) >= 1) {
       # vector
+      cat("\n", file=conct)
       # row name followed by the row values
       if (length(names(obj))==NROW(obj)) {
          rownms=esc_kvh_k(names(obj));
@@ -99,6 +106,7 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
       }
    } else if (is.list(obj)) {
       # list => recursive call if the list is not empty
+      cat("\n", file=conct)
       if (length(obj) > 0) {
          # row name followed by the row values
          if (length(names(obj))==length(obj)) {
@@ -111,8 +119,8 @@ obj2kvh=function(obj, objname=NULL, conct=stdout(), indent=0) {
          }
       }
    } else {
-      # unlnown type, write its string value
-      cat(rep("", indent+1), esc_kvh_v(format(obj)), sep="\t", file=conct);
+      # unknown type, write its string value
+      cat("", esc_kvh_v(format(obj)), sep="\t", file=conct);
       cat("\n", file=conct);
    }
    if (open_here) {
@@ -384,6 +392,8 @@ kvh_get_matrix=function(f, v) {
 #' obj2kvh(list(comment="this is a test matrix",  m=diag(2)), "li", "test.kvh")
 #' # read it back
 #' mr=kvh_get_matrix(file("test.kvh"), c("li", "m"))
+#' # clean
+#' unlink("test.kvh")
 #'
 #' @param f connection from which kvh file can be read
 #' @param v character vector of key-subkeys pointing to a matrix
@@ -413,13 +423,13 @@ kvh_get_matrix=function(f, v) {
    } else {
       nend=ncont
    }
-   d=matrix(unlist(strsplit(cont[nstart:nend], "\t", fixed=TRUE)), byrow=T, nrow=nend-nstart+1)[,-(1:indent), drop=F]
+   d=matrix(unlist(strsplit(cont[nstart:nend], "\t", fixed=TRUE)), byrow=TRUE, nrow=nend-nstart+1)[,-(1:indent), drop=FALSE]
    rownames(d)=d[,1]
    if (rownames(d)[1]=="row_col") {
       colnames(d)=d[1,]
-      d=d[-1,-1,drop=F]
+      d=d[-1,-1,drop=FALSE]
    } else {
-      d=d[,-1,drop=F]
+      d=d[,-1,drop=FALSE]
    }
    dn=dimnames(d)
    wop=options()$warn

@@ -1,8 +1,8 @@
 Package: kvh
 Type: Package
 Title: Read/Write Files in Key-Value-Hierarchy Format
-Version: 1.4
-Date: 2019-04-23
+Version: 1.4.2
+Date: 2022-01-26
 Author: Serguei Sokol
 Maintainer: Serguei Sokol <sokol@insa-toulouse.fr>
 Description: The format KVH is a lightweight format that can be read/written both by humans and machines.
@@ -16,5 +16,6 @@ LinkingTo: Rcpp
 Suggests: testthat
 NeedsCompilation: yes
 Biarch: yes
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.1
 Encoding: UTF-8
+Copyright: 2022 INRAE/INSA/CNRS
